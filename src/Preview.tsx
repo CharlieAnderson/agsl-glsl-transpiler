@@ -26,7 +26,7 @@ export const Preview: React.FC<PreviewProps> = ({
   showGrid = false
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [dims, setDims] = useState({ w: 1, h: 1 });
 
@@ -71,7 +71,7 @@ export const Preview: React.FC<PreviewProps> = ({
       wrap: gl.CLAMP_TO_EDGE, 
       min: gl.LINEAR,
       mag: gl.LINEAR, 
-      premultiplyAlpha: true,
+      premultiplyAlpha: 1,
     });
 
     const oldTex = maskTextureRef.current;
@@ -88,7 +88,7 @@ export const Preview: React.FC<PreviewProps> = ({
 
     if (!maskTextureRef.current) {
         maskTextureRef.current = twgl.createTexture(gl, {
-            src: [255, 255, 255, 255], 
+            src: new Uint8Array([255, 255, 255, 255]), 
             format: gl.RGBA,
             min: gl.NEAREST,
             mag: gl.NEAREST,
@@ -100,12 +100,15 @@ export const Preview: React.FC<PreviewProps> = ({
     const { glsl: glslFragment, lineOffset } = transpileAGSL(agslCode);
 
     const programInfo = twgl.createProgramInfo(gl, [vs, glslFragment], (err) => {
-        const correctedError = err.replace(/ERROR:\s+\d+:(\d+):/g, (match, lineStr) => {
-            const line = parseInt(lineStr, 10);
-            const userLine = line - lineOffset;
-            return `ERROR: Line ${userLine}:`;
-        });
-        setError(correctedError); 
+        const errorLines = err.split('\n').filter(line => line.startsWith('ERROR:'));
+        const correctedError = errorLines.map(line => {
+            return line.replace(/ERROR:\s+\d+:(\d+):/g, (_match, lineStr) => {
+                const lineNum = parseInt(lineStr, 10);
+                const userLine = lineNum - lineOffset;
+                return `ERROR: Line ${userLine}:`;
+            });
+        }).join('\n');
+        setError(correctedError || `Unknown error compiling shader.`);
     });
 
     if (!programInfo) return; 
@@ -133,6 +136,7 @@ export const Preview: React.FC<PreviewProps> = ({
                      wrap: gl.CLAMP_TO_EDGE,
                      min: gl.LINEAR,
                      mag: gl.LINEAR,
+                     flipY: 0,
                  });
                  dynamicTextureCache.current[name] = { src: value, tex };
                  activeTextures[name] = tex;

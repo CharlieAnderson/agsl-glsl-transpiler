@@ -41,7 +41,7 @@ export const transpileAGSL = (source: string): { glsl: string; lineOffset: numbe
   const imageUniforms: string[] = [];
   const imageDeclRegex = /uniform\s+(?:shader|sampler2D)\s+([a-zA-Z0-9_]+)\s*;/g;
   
-  glsl = glsl.replace(imageDeclRegex, (match, name) => {
+  glsl = glsl.replace(imageDeclRegex, (_match, name) => {
       if (name === 'uShapeMask') return '// built-in mask';
       imageUniforms.push(name);
       return `// moved ${name}`;
@@ -62,27 +62,9 @@ export const transpileAGSL = (source: string): { glsl: string; lineOffset: numbe
     'for (int $1 = $2; $1 < $3; $1++)'
   );
 
-  glsl = source.replace(
-      /(half4|vec4)\s+main\s*\(\s*(?:in\s+)?(float2|vec2)\s+([a-zA-Z0-9_]+)\s*\)/,
-      'vec4 userMain(vec2 $3)'
-  );
-
-  // Re-apply stripping to the fresh source to ensure clean output
-  glsl = glsl.replace(/uniform\s+(?:vec2|float2)\s+(?:resolution|uResolution)\s*;/g, '// resolution removed');
-  glsl = glsl.replace(/uniform\s+(?:vec2|float2)\s+iResolution\s*;/g, '// iResolution removed');
-  glsl = glsl.replace(/uniform\s+float\s+iTime\s*;/g, '// iTime removed');
-  glsl = glsl.replace(/uniform\s+(?:vec2|float2|vec4|float4)\s+iMouse\s*;/g, '// iMouse removed');
-  glsl = glsl.replace(/uniform\s+sampler2D\s+uShapeMask\s*;/g, '// uShapeMask removed');
-  glsl = glsl.replace(imageDeclRegex, (match, name) => {
-      if (name === 'uShapeMask') return '// built-in mask';
-      // Note: We don't push to imageUniforms here as we did it above
-      return `// moved ${name}`;
-  });
-  glsl = glsl.replace(/(\w+)\.eval\s*\(/g, '$1_eval(');
-  glsl = glsl.replace(/layout\s*\(\s*color\s*\)\s*/g, '');
   glsl = glsl.replace(
-    /for\s*\(\s*float\s+([a-zA-Z0-9_]+)\s*=\s*([0-9]+)\.0\s*;\s*\1\s*<\s*([0-9]+)\.0\s*;\s*\1\s*\+\+\s*\)/g,
-    'for (int $1 = $2; $1 < $3; $1++)'
+      /(half4|vec4|float4)\s+main\s*\(\s*(?:in\s+)?(float2|vec2)\s+([a-zA-Z0-9_]+)\s*\)/,
+      'vec4 userMain(vec2 $3)'
   );
 
   const usesMaskManual = source.includes('uShapeMask');
