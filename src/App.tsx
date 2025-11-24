@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { cpp } from '@codemirror/lang-cpp';
 import { Preview } from './Preview';
-import { parseUniforms, getDefaultValue, type UniformDef } from './uniformParser';
+import { parseUniforms, getDefaultValue } from './uniformParser';
+import type { UniformDef } from './uniformParser';
 import { UniformControls } from './UniformControls';
 
 const DEFAULT_CODE = `
@@ -29,7 +30,11 @@ half4 main(float2 coord) {
 function App() {
   const [code, setCode] = useState(DEFAULT_CODE);
   const [svgPath, setSvgPath] = useState('M140 20C73 20 20 74 20 140c0 135 136 170 228 303 88-132 229-173 229-303 0-66-54-120-120-120-48 0-90 28-109 69-19-41-60-69-108-69z');
-  const [resScale, setResScale] = useState(1.0);
+  const [resScale, setResScale] = useState(0.5);
+  
+  // Feature Flags & View Options
+  const [isAdaptiveMode, setIsAdaptiveMode] = useState(false);
+  const [showGrid, setShowGrid] = useState(false);
   
   // Auto-GUI State
   const [uniformDefs, setUniformDefs] = useState<UniformDef[]>([]);
@@ -39,12 +44,10 @@ function App() {
     setCode(val);
   }, []);
 
-  // Parse code when it changes to update Controls
   useEffect(() => {
     const defs = parseUniforms(code);
     setUniformDefs(defs);
 
-    // Initialize default values for new uniforms
     setUniformValues(prev => {
       const next = { ...prev };
       defs.forEach(d => {
@@ -61,7 +64,6 @@ function App() {
   };
 
   const copyKotlin = () => {
-    // Generate setFloatUniform calls for active uniforms
     const uniformSetters = uniformDefs.map(def => {
        if (def.type === 'color') {
            return `shader.setColorUniform("${def.name}", /* TODO: Pass color int */)`;
@@ -91,15 +93,40 @@ ${uniformSetters}
             fontWeight: 'bold', fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' 
         }}>
           <span>AGSL Input</span>
-          <button 
-            onClick={copyKotlin}
-            style={{ 
-                background: '#4CAF50', color: 'white', border: 'none', 
-                padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' 
-            }}
-          >
-            Copy Kotlin
-          </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {/* Grid Toggle */}
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.8rem', color: showGrid ? '#4CAF50' : '#aaa' }}>
+              <input 
+                type="checkbox" 
+                checked={showGrid} 
+                onChange={(e) => setShowGrid(e.target.checked)}
+                style={{ marginRight: '5px' }}
+              />
+              Grid
+            </label>
+
+            {/* Adaptive Mode Toggle */}
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.8rem', color: isAdaptiveMode ? '#4CAF50' : '#aaa' }}>
+              <input 
+                type="checkbox" 
+                checked={isAdaptiveMode} 
+                onChange={(e) => setIsAdaptiveMode(e.target.checked)}
+                style={{ marginRight: '5px' }}
+              />
+              Adaptive Mode
+            </label>
+
+            <button 
+                onClick={copyKotlin}
+                style={{ 
+                    background: '#4CAF50', color: 'white', border: 'none', 
+                    padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' 
+                }}
+            >
+                Copy Kotlin
+            </button>
+          </div>
         </div>
         <CodeMirror
           value={code}
@@ -110,7 +137,6 @@ ${uniformSetters}
           style={{ fontSize: '14px', flex: 1, overflow: 'auto' }}
         />
         
-        {/* P8: Auto-GUI Controls */}
         <UniformControls uniforms={uniformDefs} values={uniformValues} onChange={handleUniformChange} />
         
         <div style={{ padding: '10px', background: '#222', borderTop: '1px solid #444' }}>
@@ -151,6 +177,8 @@ ${uniformSetters}
             svgPath={svgPath} 
             resolutionScale={resScale} 
             customUniforms={uniformValues}
+            isAdaptiveMode={isAdaptiveMode}
+            showGrid={showGrid}
         />
       </div>
       

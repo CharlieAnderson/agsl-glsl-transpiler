@@ -295,3 +295,46 @@ half4 main(float2 coord) {
     // Output alpha based on the glow (so empty space is transparent)
     return half4(finalColor, max(core, glow));
 }
+
+
+
+// This shader draws shapes that correspond to Android's Adaptive Icon specs.
+// If "Adaptive Mode" is working, these shapes will align with the UI guides.
+
+half4 main(float2 coord) {
+    float2 uv = coord / iResolution.xy;
+    float2 center = float2(0.5, 0.5);
+    float2 dist = abs(uv - center);
+    
+    // 1. Draw 72dp Safe Zone Box (Yellow Guide)
+    // 72dp / 108dp = 0.666... (Total Width)
+    // Half width = 0.333...
+    float safeZoneHalfSize = 72.0 / 108.0 / 2.0;
+    
+    // Check if we are on the border of the 72dp box
+    // We use a small thickness (0.005) for the line
+    float isSafeBox = step(safeZoneHalfSize - 0.005, max(dist.x, dist.y)) * (1.0 - step(safeZoneHalfSize + 0.005, max(dist.x, dist.y)));
+
+    // 2. Draw 66dp Mask Circle (Red Guide)
+    // 66dp / 108dp = 0.6111... (Total Diameter)
+    // Radius = 0.3055...
+    float maskRadius = 66.0 / 108.0 / 2.0;
+    float len = length(uv - center);
+    
+    float isMaskCircle = step(maskRadius - 0.005, len) * (1.0 - step(maskRadius + 0.005, len));
+
+    // Background Color (Dark Grey)
+    half3 color = half3(0.2);
+    
+    // Add Blue Square for 72dp
+    if (isSafeBox > 0.5) color = half3(0.0, 0.5, 1.0); // Blue
+    
+    // Add Green Circle for 66dp
+    if (isMaskCircle > 0.5) color = half3(0.0, 1.0, 0.0); // Green
+
+    return half4(color, 1.0);
+}
+
+M 54, 21 A 33,33 0 1,1 54,87 A 33,33 0 1,1 54,21 Z
+
+M 50, 19.445 A 30.555,30.555 0 1,1 50,80.555 A 30.555,30.555 0 1,1 50,19.445 Z

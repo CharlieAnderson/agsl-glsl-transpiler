@@ -13,19 +13,27 @@ interface PreviewProps {
   svgPath: string;
   resolutionScale?: number;
   customUniforms?: Record<string, any>;
+  isAdaptiveMode?: boolean;
+  showGrid?: boolean;
 }
 
-export const Preview: React.FC<PreviewProps> = ({ agslCode, svgPath, resolutionScale = 1.0, customUniforms = {} }) => {
+export const Preview: React.FC<PreviewProps> = ({ 
+  agslCode, 
+  svgPath, 
+  resolutionScale = 1.0, 
+  customUniforms = {}, 
+  isAdaptiveMode = false,
+  showGrid = false
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>();
   const [error, setError] = useState<string | null>(null);
   const [dims, setDims] = useState({ w: 1, h: 1 });
 
-  const [showGrid, setShowGrid] = useState(false);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
 
-  const maskCanvas = useMaskTexture(svgPath, dims.w * resolutionScale, dims.h * resolutionScale);
+  const maskCanvas = useMaskTexture(svgPath, dims.w * resolutionScale, dims.h * resolutionScale, isAdaptiveMode);
   const maskTextureRef = useRef<WebGLTexture | null>(null);
   
   const dynamicTextureCache = useRef<Record<string, { src: string; tex: WebGLTexture }>>({});
@@ -34,6 +42,14 @@ export const Preview: React.FC<PreviewProps> = ({ agslCode, svgPath, resolutionS
   const gridShaderSize = Math.round(GRID_CSS_SIZE * resolutionScale); 
   const bufferW = Math.floor(dims.w * resolutionScale);
   const bufferH = Math.floor(dims.h * resolutionScale);
+
+  // Adaptive Guide Calculations
+  const minDim = Math.min(dims.w, dims.h);
+  // 108dp is the standard viewport.
+  // 72dp is the Safe Zone (Layer bounds) -> 72/108 = 0.6666
+  // 66dp is the Mask (Safe content) -> 66/108 = 0.6111
+  const size72 = minDim * (72 / 108);
+  const size66 = minDim * (66 / 108);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -217,6 +233,37 @@ export const Preview: React.FC<PreviewProps> = ({ agslCode, svgPath, resolutionS
             }} />
         )}
 
+        {/* Adaptive Icon Guides */}
+        {isAdaptiveMode && (
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 6 }}>
+                {/* 72dp Safe Zone */}
+                <div style={{
+                    position: 'absolute',
+                    top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: size72, height: size72,
+                    border: '2px solid rgba(255, 235, 59, 0.8)', 
+                    boxSizing: 'border-box',
+                }} />
+                {/* 66dp Mask */}
+                <div style={{
+                    position: 'absolute',
+                    top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: size66, height: size66,
+                    borderRadius: '50%',
+                    border: '2px solid rgba(244, 67, 54, 0.8)',
+                    boxSizing: 'border-box',
+                }} />
+                {/* Center Crosshair */}
+                <div style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    width: 10, height: 10, transform: 'translate(-50%, -50%)',
+                    borderLeft: '1px solid rgba(255,255,255,0.5)', borderTop: '1px solid rgba(255,255,255,0.5)'
+                }} />
+            </div>
+        )}
+
         {showGrid && (
             <>
                 <div style={{
@@ -243,19 +290,6 @@ export const Preview: React.FC<PreviewProps> = ({ agslCode, svgPath, resolutionS
                 </div>
             </>
         )}
-
-        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 15, display: 'flex', gap: 10 }}>
-            <button 
-                onClick={() => setShowGrid(!showGrid)}
-                style={{
-                    background: showGrid ? '#4CAF50' : '#333',
-                    color: 'white', border: '1px solid #555',
-                    padding: '4px 8px', borderRadius: '4px', fontSize: '12px', cursor: 'pointer'
-                }}
-            >
-                {showGrid ? 'Grid: ON' : 'Grid: OFF'}
-            </button>
-        </div>
 
         {mousePos && (
             <div style={{
